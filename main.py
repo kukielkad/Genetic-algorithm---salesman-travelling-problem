@@ -4,12 +4,13 @@ import matplotlib as plt
 import random
 import copy
 import pygame
+from pygame.locals import *
 from scipy.spatial.distance import squareform, pdist
 from sklearn.neighbors import DistanceMetric
 number_of_cars = 5
-car_capacity = 1000
+CAR_CAPACITY = 10000
 number_of_customers = 30
-POPULATION_SIZE = 10000
+POPULATION_SIZE = 1000
 
 class Route:
 	def __init__(self):
@@ -31,29 +32,53 @@ class Route:
 	def __lt__(self, other_route):
 		return self.get_total_cost() < other_route.get_total_cost()
 
+	def __eq__(self, other_route):
+		return self.get_total_cost() == other_route.get_total_cost()
+
+# def evaluate_route(route, distance_matrix, cities_demand):
+# 	cities_list = list(CITIES_DEMAND)
+# 	depot = "Krakow"
+# 	depot_index = cities_list.index(depot)
+# 	total_cost = 0
+# 	while route:
+# 		capacity = 0
+# 		city = route.pop()
+# 		capacity = cities_demand[city]
+# 		city_index = cities_list.index(city)
+# 		total_cost += distance_matrix[depot_index][city_index]
+# 		while True:
+# 			if route:
+# 				if capacity + cities_demand[route[0]] > CAR_CAPACITY:
+# 					break
+# 				next_city = route.pop()
+# 				next_city_index = cities_list.index(next_city)
+# 				capacity += cities_demand[next_city]
+# 				total_cost += distance_matrix[next_city_index][city_index]
+# 				city = next_city
+# 			else:
+# 				break
+# 		total_cost += distance_matrix[city_index][depot_index]
+# 	return total_cost
 
 def evaluate_route(route, distance_matrix, cities_demand):
 	cities_list = list(CITIES_DEMAND)
 	depot = "Krakow"
+	depot_index = cities_list.index(depot)
 	total_cost = 0
+	capacity = 0
+	city = route.pop()
+	capacity = cities_demand[city]
+	city_index = cities_list.index(city)
+	total_cost += distance_matrix[depot_index][city_index]
 	while route:
-		capacity = 0
-		city = route.pop()
-		capacity = cities_demand[city]
-		total_cost += distance_matrix[cities_list.index(depot)][cities_list.index(city)]
-		while True:
-			if route:
-				if capacity + cities_demand[route[0]] > 1000:
-					break
-				next_city = route.pop()
-				capacity += cities_demand[next_city]
-				total_cost += distance_matrix[cities_list.index(city)][cities_list.index(next_city)]
-				city = next_city
-			else:
-				break
-		total_cost += distance_matrix[cities_list.index(city)][cities_list.index(depot)]
+		next_city = route.pop()
+		next_city_index = cities_list.index(next_city)
+		capacity += cities_demand[next_city]
+		total_cost += distance_matrix[next_city_index][city_index]
+		city = next_city
+		city_index = cities_list.index(city)
+	total_cost += distance_matrix[city_index][depot_index]
 	return total_cost
-
 
 def create_population(cities, population_size):
 	population = []
@@ -65,38 +90,21 @@ def create_population(cities, population_size):
 	return population
 
 
-def generate_childs(population):
-	childs = []
-	for i in range(int(POPULATION_SIZE/2)):
-		random_routes = random.sample(population, 2)
-		parent_first = random_routes[0]
-		population.remove(parent_first)
-		parent_second = random_routes[1]
-		population.remove(parent_second)
-		cross_length = random.randint(1, len(parent_first.get_route()) - 1)
-		child_first = ['']*len(parent_first.get_route())
-		child_second = ['']*len(parent_first.get_route())
-		child_first[:cross_length] = parent_second.get_route()[:cross_length]
-		child_second[:cross_length] = parent_first.get_route()[:cross_length]
-		for city in parent_first.get_route()[cross_length:]:
-			if not city in child_first:
-				child_first[parent_first.get_route().index(city)] = city 
-		for city in parent_first.get_route():
-			if not city in child_first:
-				child_first[child_first.index('')] = city
-		for city in parent_second.get_route()[cross_length:]:
-			if not city in child_second:
-				child_second[parent_second.get_route().index(city)] = city 
-		for city in parent_first.get_route():
-			if not city in child_second:
-				child_second[child_second.index('')] = city
-		childs.append(child_first.copy())
-		#print(parent_first.get_route())
-		#print(parent_second.get_route())
-		#print(cross_length)
-		#print(child_first)
-		childs.append(child_second.copy())
-	return childs
+def generate_child(parent_first, parent_second):
+	cross_first = random.randint(0, len(parent_first.get_route()))
+	cross_second = random.randint(0, len(parent_first.get_route()))
+	if cross_first > cross_second:
+		cross_first, cross_second = cross_second, cross_first
+	child = copy.deepcopy(parent_first.get_route())
+	for i in range(cross_first, cross_second):
+		child[i], child[parent_first.get_route().index(parent_second.get_route()[i])] = child[parent_first.get_route().index(parent_second.get_route()[i])], child[i]
+	return copy.deepcopy(child)
+
+def mutate(result):
+	mutation_first = random.randint(0, len(result) -1)
+	mutation_second = random.randint(0, len(result) -1)
+	result[mutation_first], result[mutation_second] = result[mutation_second], result[mutation_first]
+	return copy.deepcopy(result)
 
 CITIES_DEMAND = {"Bialystok":500,"Bielsko_Biala":50,"Chrzanow":400,"Gdansk":200,"Gdynia":100,"Gliwice":40,
 "Gromnik":200,"Katowice":300,"Kielce":30,"Krosno":60,"Krynica":50,"Lublin":60,"Lodz":160,"Malbork":100,"Nowy_Targ":120,
@@ -111,29 +119,43 @@ position['latitude']=np.radians(position['latitude'])
 position['longitude']=np.radians(position['longitude'])
 #make distance matrix
 distance_matrix = dist.pairwise(position[['latitude','longitude']].to_numpy())*6373
-print(distance_matrix)
+#print(distance_matrix)
+#print(distance_matrix[3][30])
 unvisited_cities = [city for city in CITIES_DEMAND]
 unvisited_cities.remove('Krakow')
 total_cost = sum([CITIES_DEMAND[city] for city in CITIES_DEMAND])
 random.shuffle(unvisited_cities)
 population = create_population(unvisited_cities, POPULATION_SIZE)
-
-evaluate_route(population[0].get_route().copy(), distance_matrix, CITIES_DEMAND)
+for result in population:
+	result.set_total_cost(evaluate_route(copy.deepcopy(result.get_route()), distance_matrix, CITIES_DEMAND))
 pygame.init()
 display = pygame.display.set_mode((800,600))
-for i in range(1):
-	childs = generate_childs(copy.deepcopy(population))
-	childs_population = []
-	for child in childs:
-		route = Route()
-		route.set_route(child)
-		childs_population.append(copy.deepcopy(route))
-	population += childs_population
-	for result in population:
-		result.set_total_cost(evaluate_route(copy.deepcopy(result.get_route()), distance_matrix, CITIES_DEMAND))
+for i in range(1000):
+	new_population = []
 	population.sort()
-	print(min(population).get_total_cost())
-	population = population[:POPULATION_SIZE]
+	new_population.append(copy.deepcopy(population[0]))
+	for i in range(POPULATION_SIZE -1 ):
+		parent_first = min([route for route in random.sample(population, 30)])
+		population.remove(parent_first)
+		parent_second = min([route for route in random.sample(population, 30)])
+		population.append(parent_first)
+		child = Route()
+		child.set_route(generate_child(parent_first, parent_second))
+		if random.random() < 0.9:
+			child.set_route(mutate(child.get_route()))
+		#print("\n")
+		#("Dziecko: " + str(child.get_route()))
+		#print("\n")
+		child.set_total_cost(evaluate_route(copy.deepcopy(child.get_route()), distance_matrix, CITIES_DEMAND))
+		new_population.append(copy.deepcopy(child))
+	#new_population.sort()
+	#print("\n")
+	#for i in new_population:
+		#print(str(i.get_total_cost()))
+	#print("\n")
+	print(min(new_population).get_total_cost())
+	population = copy.deepcopy(new_population)
+
 min_lat = min(position['latitude'])
 max_lat = max(position['latitude'])
 min_long = min(position['longitude'])
@@ -143,6 +165,8 @@ for i in range(len(CITIES_DEMAND)):
 	pos_long = (position['longitude'][i]-min_long)/(max_long-min_long)*800
 	pygame.draw.circle(display, (255, 255, 255), (pos_long, pos_lat), 4)
 route = min(population).get_route()
+print(route)
+print(evaluate_route(copy.deepcopy(route), distance_matrix, CITIES_DEMAND))
 while route:
 	capacity = 0
 	main_city = "Krakow"
@@ -156,8 +180,7 @@ while route:
 	pygame.draw.line(display, color, (city_long, city_lat), (main_city_long, main_city_lat),1)
 	while True:
 		if route:
-			if capacity + CITIES_DEMAND[route[0]] > 1000:
-				pygame.draw.line(display, color, (city_long, city_lat), (main_city_long, main_city_lat),1)
+			if capacity + CITIES_DEMAND[route[0]] > CAR_CAPACITY:
 				break
 			next_city = route.pop()
 			capacity += CITIES_DEMAND[next_city]
@@ -169,7 +192,13 @@ while route:
 			city_long = (position['longitude'][unvisited_cities.index(city)]-min_long)/(max_long-min_long)*800
 		else:
 			break
-	color = pygame.Color('#' +''.join([random.choice('0123456789ABCDEF') for j in range(6)]))
+	pygame.draw.line(display, color, (city_long, city_lat), (main_city_long, main_city_lat),1)
+	color = pygame.Color('#' +''.join([random.choice('56789ABCDEF') for j in range(6)]))
 pygame.display.update()
-input("Press Enter to continue...")
+while True:
+    for event in pygame.event.get():
+        if event.type == QUIT:
+            pygame.quit()
+        if event.type == KEYDOWN:
+            break
 
