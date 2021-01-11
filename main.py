@@ -164,8 +164,8 @@ for result in population:
 for i in range(ITERATION_COUNT):
 	new_population = []
 	population.sort()
-	for i in range(ELITISM):
-	 	new_population.append(copy.deepcopy(population[i]))
+	for g in range(ELITISM):
+	 	new_population.append(copy.deepcopy(population[g]))
 	for j in range(POPULATION_SIZE - ELITISM):
 		#print("Iteracja: " + str(i))
 		parent_first = min([route for route in random.sample(population, TOURNAMENT_SIZE)])
@@ -179,7 +179,7 @@ for i in range(ITERATION_COUNT):
 		#print(i)
 		#print(list(range(100, 6000, 100)))
 		if ITERATION_COUNT != 0:
-			if i in list(range(100, ITERATION_COUNT, 200)):
+			if i in list(range(0, ITERATION_COUNT, SHAKE_AFTER)):
 				for g in range(30):
 					if random.random() < MUTATION_PROBABILITY * 6:
 						child.set_route(mutate(child.get_route()))
