@@ -159,6 +159,7 @@ best_route = Route()
 best_route.set_total_cost(float("inf"))
 pygame.init()
 display = pygame.display.set_mode((800,800))
+clock = pygame.time.Clock()
 for result in population:
 	result.set_total_cost(evaluate_route(copy.deepcopy(result.get_route()), distance_matrix, CITIES_DEMAND))
 for i in range(ITERATION_COUNT):
@@ -260,10 +261,13 @@ for i in range(ITERATION_COUNT):
 					break
 			pygame.draw.line(display, color, (city_long, 800-city_lat), (main_city_long,800-main_city_lat),1)
 		pygame.display.update()
+		pygame.event.pump()
+		clock.tick()
 	#print(len(new_population))
 	population = copy.deepcopy(new_population)
 route = best_route.get_route()
 os.system("cls")
+pygame.display.update()
 print("Best solution cost: " + str(best_route.get_total_cost()))
 print("Best solution routes: ")
 while route:
@@ -290,4 +294,3 @@ while True:
 			pygame.quit()
 		if event.type == KEYDOWN:
 			break
-
